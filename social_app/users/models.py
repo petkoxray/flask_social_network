@@ -4,7 +4,7 @@ from flask import current_app
 from flask_login import UserMixin
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 
-from flaskblog import db, login_manager
+from social_app import db, login_manager
 
 
 @login_manager.user_loader

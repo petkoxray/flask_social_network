@@ -1,5 +1,5 @@
 from flask import render_template, request, Blueprint
-from flaskblog.posts.models import Post
+from social_app.posts.models import Post
 
 main = Blueprint('main', __name__)
 

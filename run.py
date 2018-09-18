@@ -1,4 +1,4 @@
-from flaskblog import create_app
+from social_app import create_app
 
 app = create_app()
 
