@@ -1,4 +1,4 @@
-from flask import render_template, request, Blueprint, url_for, flash, redirect
+from flask import render_template, request, Blueprint, url_for, flash, redirect, current_app
 from flask_login import login_required, current_user
 
 from social_app import db
@@ -21,7 +21,7 @@ def home():
         return redirect(url_for('main.home'))
     page = request.args.get('page', 1, type=int)
     posts = current_user.followed_posts().paginate(
-        page, 15, False)
+        page, current_app.config['POSTS_PER_PAGE'], False)
     next_url = url_for('main.home', page=posts.next_num) \
         if posts.has_next else None
     prev_url = url_for('main.home', page=posts.prev_num) \
@@ -36,7 +36,7 @@ def home():
 def explore():
     page = request.args.get('page', 1, type=int)
     posts = Post.query.order_by(Post.timestamp.desc()).paginate(
-        page, 15, False)
+        page, current_app.config['POSTS_PER_PAGE'], False)
     next_url = url_for('main.explore', page=posts.next_num) \
         if posts.has_next else None
     prev_url = url_for('main.explore', page=posts.prev_num) \
