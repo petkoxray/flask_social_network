@@ -3,10 +3,10 @@ from flask_login import login_user, current_user, logout_user, login_required
 
 from social_app import db, bcrypt
 from social_app.posts.models import Post
-from social_app.users.forms import (RegistrationForm, LoginForm, UpdateAccountForm,
+from social_app.users.forms import (RegistrationForm, LoginForm, EditProfileForm,
                                     RequestResetForm, ResetPasswordForm)
 from social_app.users.models import User
-from social_app.users.utils import save_picture, send_reset_email
+from social_app.users.utils import send_reset_email
 
 users = Blueprint('users', __name__)
 
@@ -48,33 +48,36 @@ def logout():
     return redirect(url_for('main.home'))
 
 
-@users.route("/account", methods=['GET', 'POST'])
+@users.route("/edit_profile", methods=['GET', 'POST'])
 @login_required
-def account():
-    form = UpdateAccountForm()
+def edit_profile():
+    form = EditProfileForm(current_user.username)
     if form.validate_on_submit():
-        if form.picture.data:
-            picture_file = save_picture(form.picture.data)
-            current_user.image_file = picture_file
         current_user.username = form.username.data
+        current_user.about_me = form.about_me.data
         db.session.commit()
-        flash('Your account has been updated!', 'success')
-        return redirect(url_for('users.account'))
+        flash('Your changes have been saved.', 'success(')
+        return redirect(url_for('users.edit_profile'))
     elif request.method == 'GET':
         form.username.data = current_user.username
-    image_file = url_for('static', filename='profile_pics/' + current_user.image_file)
-    return render_template('users/account.html', title='Account',
-                           image_file=image_file, form=form)
+        form.about_me.data = current_user.about_me
+    return render_template('users/edit_profile.html', title='Edit Profile',
+                           form=form)
 
 
-@users.route("/user/<string:username>")
-def user_posts(username):
-    page = request.args.get('page', 1, type=int)
+@users.route('/user/<username>')
+@login_required
+def user(username):
     user = User.query.filter_by(username=username).first_or_404()
-    posts = Post.query.filter_by(author=user) \
-        .order_by(Post.date_posted.desc()) \
-        .paginate(page=page, per_page=5)
-    return render_template('users/user_posts.html', posts=posts, user=user)
+    page = request.args.get('page', 1, type=int)
+    posts = user.posts.order_by(Post.timestamp.desc()).paginate(
+        page, 20, False)
+    next_url = url_for('users.user', username=user.username, page=posts.next_num) \
+        if posts.has_next else None
+    prev_url = url_for('users.user', username=user.username, page=posts.prev_num) \
+        if posts.has_prev else None
+    return render_template('users/user.html', user=user, posts=posts.items,
+                           next_url=next_url, prev_url=prev_url)
 
 
 @users.route("/reset_password", methods=['GET', 'POST'])
@@ -85,7 +88,7 @@ def reset_request():
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
         send_reset_email(user)
-        flash('An email has been sent with instructions to reset your password.', 'info')
+        flash("An email has been sent with instructions to reset your password.", 'info')
         return redirect(url_for('users.login'))
     return render_template('users/reset_request.html', title='Reset Password', form=form)
 
@@ -96,13 +99,45 @@ def reset_token(token):
         return redirect(url_for('main.home'))
     user = User.verify_reset_token(token)
     if user is None:
-        flash('That is an invalid or expired token', 'warning')
+        flash("That is an invalid or expired token", 'warning')
         return redirect(url_for('users.reset_request'))
     form = ResetPasswordForm()
     if form.validate_on_submit():
         hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
         user.password = hashed_password
         db.session.commit()
-        flash('Your password has been updated! You are now able to log in', 'success')
+        flash("Your password has been updated! You are now able to log in", 'success')
         return redirect(url_for('users.login'))
     return render_template('users/reset_token.html', title='Reset Password', form=form)
+
+
+@users.route('/follow/<username>')
+@login_required
+def follow(username):
+    user = User.query.filter_by(username=username).first()
+    if user is None:
+        flash(f"User {username} not found.", 'danger*')
+        return redirect(url_for('main.home'))
+    if user == current_user:
+        flash("You cannot follow yourself!", 'info')
+        return redirect(url_for('users.user', username=username))
+    current_user.follow(user)
+    db.session.commit()
+    flash(f"You are following {username}!", 'success')
+    return redirect(url_for('users.user', username=username))
+
+
+@users.route('/unfollow/<username>')
+@login_required
+def unfollow(username):
+    user = User.query.filter_by(username=username).first()
+    if user is None:
+        flash(f"User {username} not found.", 'dangerlen()')
+        return redirect(url_for('main.home'))
+    if user == current_user:
+        flash("You cannot unfollow yourself!", 'info')
+        return redirect(url_for('users.user', username=username))
+    current_user.unfollow(user)
+    db.session.commit()
+    flash(f"You are not following {username}.", 'success')
+    return redirect(url_for('users.user', username=username))
