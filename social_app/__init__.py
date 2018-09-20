@@ -1,3 +1,4 @@
+from elasticsearch import Elasticsearch
 from flask import Flask
 from flask_bcrypt import Bcrypt
 from flask_bootstrap import Bootstrap
@@ -31,6 +32,9 @@ def create_app(config_class=Config):
     mail.init_app(app)
     bootstrap.init_app(app)
     moment.init_app(app)
+
+    app.elasticsearch = Elasticsearch([app.config['ELASTICSEARCH_URL']]) \
+        if app.config['ELASTICSEARCH_URL'] else None
 
     from social_app.users.routes import users
     from social_app.main.routes import main
