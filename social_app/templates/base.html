@@ -10,7 +10,7 @@
 
 {% block content %}
     <div class="container">
-        {% include '_messages.html' %}
+        {% include '_flash_messages.html' %}
         {# application content needs to be provided in the app_content block #}
         {% block app_content %}{% endblock %}
     </div>
@@ -20,4 +20,25 @@
     {{ super() }}
     {{ moment.include_moment() }}
     <script src="{{ url_for('static', filename='main.js') }}"></script>
+    <script>
+        function set_message_count(n) {
+            $('#message_count').text(n).css('visibility', n ? 'visible' : 'hidden');
+        }
+        {% if current_user.is_authenticated %}
+            $(function () {
+                let since = 0;
+                setInterval(function () {
+                    $.ajax('{{ url_for('main.notifications') }}?since=' + since).done(
+                        function (notifications) {
+                            for (var i = 0; i < notifications.length; i++) {
+                                if (notifications[i].name === 'unread_message_count')
+                                    set_message_count(notifications[i].data);
+                                since = notifications[i].timestamp;
+                            }
+                        }
+                    );
+                }, 10000);
+            });
+        {% endif %}
+    </script>
 {% endblock %}
